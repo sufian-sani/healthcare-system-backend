@@ -1,16 +1,21 @@
 from rest_framework import generics, permissions
 from rest_framework.permissions import AllowAny
-from .serializers import DoctorListSerializer, RegisterSerializer, UserProfileSerializer
+from .serializers import DoctorListSerializer, DoctorProfileSerializer, RegisterSerializer, UserProfileSerializer
 from .models import User
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .serializers import CustomTokenObtainPairSerializer
 
 # Create your views here.
 # class RegisterView(generics.CreateAPIView):
 #     queryset = User.objects.all()
 #     permission_classes = [AllowAny]
 #     serializer_class = RegisterSerializer
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
@@ -34,3 +39,9 @@ class DoctorListView(generics.ListAPIView):
     queryset = User.objects.filter(role='doctor').select_related('doctordetail').prefetch_related('doctorschedule_set')
     serializer_class = DoctorListSerializer
     permission_classes = [permissions.AllowAny]  # anyone can view
+
+
+class DoctorDetailView(generics.RetrieveAPIView):
+    queryset = User.objects.filter(role='doctor').select_related('doctordetail').prefetch_related('doctorschedule_set')
+    serializer_class = DoctorProfileSerializer
+    permission_classes = [permissions.AllowAny]

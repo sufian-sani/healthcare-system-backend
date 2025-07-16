@@ -1,6 +1,29 @@
 from rest_framework import serializers
 from .models import DoctorDetail, DoctorSchedule, User
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+
+        # ✅ Add custom claims to JWT
+        token['role'] = user.role
+        token['full_name'] = user.full_name
+
+        return token
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+
+        # ✅ Also include these in the response body (not only inside JWT)
+        data.update({
+            'role': self.user.role,
+            'full_name': self.user.full_name
+        })
+        return data
+
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -106,3 +129,10 @@ class DoctorListSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'full_name', 'mobile_number', 'role', 'address', 'profile_image', 'doctordetail','schedule']
 
+class DoctorProfileSerializer(serializers.ModelSerializer):
+    doctordetail = DoctorDetailSerializer(read_only=True)
+    schedules = DoctorScheduleSerializer(source='doctorschedule_set', many=True, read_only=True)  # uses related_name='schedules'
+
+    class Meta:
+        model = User
+        fields = ['id', 'full_name', 'mobile_number', 'role', 'address', 'profile_image', 'doctordetail', 'schedules']
