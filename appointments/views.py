@@ -16,7 +16,7 @@ class AppointmentBookingView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if not serializer.is_valid():
-            print("🔴 Field‑level errors:", serializer.errors)
+            # print("🔴 Field‑level errors:", serializer.errors)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         # At this point all fields are OK and validate() will run
         print("🟢 Fields OK, now running validate()")
