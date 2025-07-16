@@ -1,0 +1,20 @@
+# ---- General ----
+*.env
+.env.*
+
+*node_modules
+
+# ---- VSCode ----
+.vscode/
+
+# ---- Python Virtual Environment ----
+venv/
+env/
+ENV/
+
+
+
+
+# ---- Editor specific ----
+.idea/
+
