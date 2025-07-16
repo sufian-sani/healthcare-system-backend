@@ -13,19 +13,6 @@ class AppointmentBookingView(generics.CreateAPIView):
     serializer_class = AppointmentBookingSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def create(self, request, *args, **kwargs):
-        doctor_id = self.kwargs.get("doctor_id")
-        if not doctor_id:
-            return Response({"doctor": "Doctor ID is required in URL."}, status=status.HTTP_400_BAD_REQUEST)
-        
-        serializer = self.get_serializer(data=request.data)
-        if not serializer.is_valid():
-            # print("🔴 Field‑level errors:", serializer.errors)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        # At this point all fields are OK and validate() will run
-        # print("🟢 Fields OK, now running validate()")
-        return super().create(request, *args, **kwargs)
-
 
 # ✅ Get available slots for a schedule
 class AvailableSlotsView(APIView):
