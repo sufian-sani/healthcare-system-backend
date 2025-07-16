@@ -38,7 +38,7 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
 class DoctorScheduleSerializer(serializers.ModelSerializer):
     class Meta:
         model = DoctorSchedule
-        fields = ['date', 'start_time', 'end_time']
+        fields = ['id', 'date', 'start_time', 'end_time']
 
 class UserProfileSerializer(serializers.ModelSerializer):
     doctordetail = DoctorDetailSerializer(required=False)
@@ -97,3 +97,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 )
 
         return instance
+
+class DoctorListSerializer(serializers.ModelSerializer):
+    doctordetail = DoctorDetailSerializer(read_only=True)
+    schedule = DoctorScheduleSerializer(source='doctorschedule_set', many=True, read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'full_name', 'mobile_number', 'role', 'address', 'profile_image', 'doctordetail','schedule']
+

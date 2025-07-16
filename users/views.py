@@ -1,6 +1,6 @@
 from rest_framework import generics, permissions
 from rest_framework.permissions import AllowAny
-from .serializers import RegisterSerializer, UserProfileSerializer
+from .serializers import DoctorListSerializer, RegisterSerializer, UserProfileSerializer
 from .models import User
 from rest_framework.views import APIView
 from rest_framework import status
@@ -28,3 +28,9 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user  # 👈 always returns logged-in user
+    
+
+class DoctorListView(generics.ListAPIView):
+    queryset = User.objects.filter(role='doctor').select_related('doctordetail').prefetch_related('doctorschedule_set')
+    serializer_class = DoctorListSerializer
+    permission_classes = [permissions.AllowAny]  # anyone can view
