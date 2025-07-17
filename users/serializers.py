@@ -1,4 +1,7 @@
 from rest_framework import serializers
+
+from appointments.models import AppointmentBooking
+from appointments.serializers import AppointmentBookingSerializer
 from .models import DoctorDetail, DoctorSchedule, User
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -65,18 +68,51 @@ class DoctorScheduleSerializer(serializers.ModelSerializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     doctordetail = DoctorDetailSerializer(required=False)
-    schedules = serializers.ListField(child=serializers.DictField(), required=False) 
+    schedules = serializers.ListField(child=serializers.DictField(), required=False)
+    booked_appointments = serializers.SerializerMethodField()
+    already_booked = serializers.SerializerMethodField()
     class Meta:
         model = User
-        fields = ['id', 'full_name', 'mobile_number', 'role', 'address', 'profile_image', 'created_at','doctordetail','schedules']
+        fields = ['id', 'full_name', 'mobile_number', 'role', 'address', 'profile_image', 'created_at','doctordetail','schedules','booked_appointments','already_booked']
         read_only_fields = ['id', 'mobile_number', 'role', 'created_at']
 
-    # def get_doctordetail(self, user):
-    #     if user.role == 'doctor':
-    #         doctor_detail = getattr(user, 'doctordetail', None)
-    #         if doctor_detail:
-    #             return DoctorDetailSerializer(doctor_detail).data
-    #     return None
+    def get_booked_appointments(self, obj):
+        """Return all appointments booked by this patient"""
+        if obj.role != 'patient':
+            return []
+        appointments = AppointmentBooking.objects.filter(patient=obj).select_related('doctor', 'schedule')
+        return AppointmentBookingSerializer(appointments, many=True).data
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        instance = kwargs.get('instance') or (args[0] if args else None)
+
+        # ✅ If user is NOT doctor → remove these fields from response
+        if instance:
+            if instance.role != 'doctor':
+                self.fields.pop('doctordetail', None)
+                self.fields.pop('schedules', None)
+                self.fields.pop('already_booked', None)
+
+            if instance.role != 'patient':
+                self.fields.pop('booked_appointments', None)
+
+    def get_already_booked(self, obj):
+        """For doctors: show booked slots with patient info"""
+        if obj.role != 'doctor':
+            return []
+        appointments = AppointmentBooking.objects.filter(doctor=obj).select_related('patient', 'schedule')
+        return [
+            {
+                "appointment_id": app.id,
+                "patient_name": app.patient.full_name,
+                "schedule_id": app.schedule.id,
+                "appointment_time": app.appointment_time.strftime("%H:%M"),
+                "notes": app.notes,
+                "status":app.status
+            }
+            for app in appointments
+        ]
 
     def to_representation(self, instance):
         """✅ Convert schedules to readable format when retrieving"""
@@ -84,8 +120,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
         if instance.role == 'doctor':
             schedules = DoctorSchedule.objects.filter(doctor=instance)
             data['schedules'] = DoctorScheduleSerializer(schedules, many=True).data
-        else:
-            data['schedules'] = []
+        # elif instance.role == 'patient':
+        #     appointments = AppointmentBooking.objects.filter(patient=instance).select_related('doctor', 'schedule')
+        #     data['booked_appointments'] = AppointmentBookingSerializer(appointments, many=True).data
+
         return data
 
     def update(self, instance, validated_data):
@@ -100,7 +138,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
         # Handle nested doctor update
         if instance.role == 'doctor' and doctor_data:
-            doctor_detail, created = DoctorDetail.objects.get_or_create(user=instance)
+            doctor_detail, _ = DoctorDetail.objects.get_or_create(user=instance)
             # Update each field from doctor_data
             for attr, value in doctor_data.items():
                 setattr(doctor_detail, attr, value)

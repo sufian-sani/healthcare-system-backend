@@ -51,3 +51,15 @@ class AppointmentBookingSerializer(serializers.ModelSerializer):
 class AvailableSlotsSerializer(serializers.Serializer):
     schedule_id = serializers.IntegerField()
     available_slots = serializers.ListField(child=serializers.CharField())
+
+
+class AppointmentStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppointmentBooking
+        fields = ["status"]
+
+    def validate_status(self, value):
+        allowed_statuses = ["confirmed", "cancelled", "completed"]
+        if value not in allowed_statuses:
+            raise serializers.ValidationError(f"Status must be one of: {', '.join(allowed_statuses)}")
+        return value

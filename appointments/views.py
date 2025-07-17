@@ -2,7 +2,7 @@ from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import AppointmentBooking
-from .serializers import AppointmentBookingSerializer, AvailableSlotsSerializer
+from .serializers import AppointmentBookingSerializer, AppointmentStatusUpdateSerializer, AvailableSlotsSerializer
 from users.models import DoctorSchedule
 from .utils import generate_30_min_slots
 from rest_framework import status
@@ -43,3 +43,15 @@ class MyAppointmentsView(generics.ListAPIView):
 
     def get_queryset(self):
         return AppointmentBooking.objects.filter(patient=self.request.user)
+    
+
+class AppointmentStatusUpdateView(generics.UpdateAPIView):
+    queryset = AppointmentBooking.objects.all()
+    serializer_class = AppointmentStatusUpdateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        appointment = super().get_object()
+        if appointment.doctor != self.request.user:
+            raise PermissionDenied("You are not allowed to update this appointment status.")
+        return appointment

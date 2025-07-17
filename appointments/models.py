@@ -20,11 +20,11 @@ class AppointmentBooking(models.Model):
     status = models.CharField(
         max_length=20,
         choices=[
-            ('scheduled', 'Scheduled'),
-            ('completed', 'Completed'),
-            ('cancelled', 'Cancelled')
+            ('confirmed', 'Confirmed'),
+            ('cancelled', 'Cancelled'),
+            ('completed', 'Completed')
         ],
-        default='scheduled'
+        default='pending'
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
