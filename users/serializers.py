@@ -1,3 +1,4 @@
+import re
 from rest_framework import serializers
 
 from appointments.models import AppointmentBooking
@@ -177,14 +178,26 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
         fields = ['id', 'full_name', 'mobile_number', 'role', 'address', 'profile_image', 'doctordetail', 'schedules']
 
 
+
 class DoctorSignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
+    license_number = serializers.CharField(write_only=True)
+    experience_years = serializers.IntegerField(write_only=True)
+    consultation_fee = serializers.IntegerField(write_only=True)
+    available_timeslots = serializers.ListField(
+        child=serializers.DictField(child=serializers.CharField()),
+        write_only=True
+    )
 
     class Meta:
         model = User
-        fields = ['id', 'full_name', 'mobile_number', 'password', 'role', 'address', 'profile_image']
+        fields = [
+            'id', 'full_name', 'mobile_number', 'password', 'role',
+            'address', 'profile_image',
+            'license_number', 'experience_years', 'consultation_fee', 'available_timeslots'
+        ]
         extra_kwargs = {
-            'role': {'default': 'doctor'},
+            'role': {'default': 'doctor'}
         }
 
     def validate_role(self, value):
@@ -192,11 +205,44 @@ class DoctorSignupSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Only doctor signup is allowed with this endpoint.")
         return value
 
+    def validate_mobile_number(self, value):
+        """✅ Ensure mobile number starts with +88 and has exactly 14 characters"""
+        if not value.startswith("+88"):
+            raise serializers.ValidationError("Mobile number must start with +88.")
+        if len(value) != 14:
+            raise serializers.ValidationError("Mobile number must be exactly 14 characters (e.g., +8801711223344).")
+        if not re.match(r'^\+88[0-9]{11}$', value):
+            raise serializers.ValidationError("Mobile number must contain only digits after +88.")
+        return value
+
     def create(self, validated_data):
         password = validated_data.pop("password")
+        license_number = validated_data.pop("license_number")
+        experience_years = validated_data.pop("experience_years")
+        consultation_fee = validated_data.pop("consultation_fee")
+        available_timeslots = validated_data.pop("available_timeslots")
+
+        # ✅ Create User (Doctor)
         user = User.objects.create(**validated_data)
         user.set_password(password)
+        user.role = "doctor"
         user.save()
 
-        # ✅ DoctorDetail will be automatically created via signal
+        # ✅ Create DoctorDetail
+        DoctorDetail.objects.create(
+            user=user,
+            license_number=license_number,
+            experience_years=experience_years,
+            consultation_fee=consultation_fee
+        )
+
+        # ✅ Create DoctorSchedule
+        for slot in available_timeslots:
+            DoctorSchedule.objects.create(
+                doctor=user,
+                date=slot.get("date"),
+                start_time=slot.get("start_time"),
+                end_time=slot.get("end_time")
+            )
+
         return user
