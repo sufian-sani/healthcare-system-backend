@@ -59,7 +59,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 class DoctorDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = DoctorDetail
-        fields = ['license_number', 'experience_years', 'consultation_fee']
+        fields = ['license_number', 'experience_years', 'consultation_fee', 'specialization', 'location']
 
 class DoctorScheduleSerializer(serializers.ModelSerializer):
     class Meta:

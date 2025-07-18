@@ -68,7 +68,8 @@ class DoctorDetail(models.Model):
     license_number = models.CharField(max_length=50)
     experience_years = models.PositiveIntegerField()
     consultation_fee = models.PositiveIntegerField()
-    # available_timeslots = models.JSONField()  # You could use ArrayField if using PostgreSQL
+    specialization = models.CharField(max_length=100, blank=True, null=True)
+    location = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

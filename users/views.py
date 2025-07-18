@@ -36,9 +36,25 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
     
 
 class DoctorListView(generics.ListAPIView):
-    queryset = User.objects.filter(role='doctor').select_related('doctordetail').prefetch_related('doctorschedule_set')
+    # queryset = User.objects.filter(role='doctor').select_related('doctordetail').prefetch_related('doctorschedule_set')
     serializer_class = DoctorListSerializer
     permission_classes = [permissions.AllowAny]  # anyone can view
+    
+    def get_queryset(self):
+        queryset = User.objects.filter(role='doctor').select_related('doctordetail').prefetch_related('doctorschedule_set')
+
+        specialization = self.request.query_params.get('specialization')
+        location = self.request.query_params.get('location')
+        available = self.request.query_params.get('available')
+
+        if specialization:
+            queryset = queryset.filter(doctordetail__specialization__icontains=specialization)
+        if location:
+            queryset = queryset.filter(doctordetail__location__icontains=location)
+        if available == "true":
+            queryset = queryset.filter(schedules__date__gte=now().date()).distinct()
+
+        return queryset
 
 
 class DoctorDetailView(generics.RetrieveAPIView):
