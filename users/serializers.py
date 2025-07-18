@@ -5,6 +5,7 @@ from appointments.serializers import AppointmentBookingSerializer
 from .models import DoctorDetail, DoctorSchedule, User
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from django.contrib.auth.hashers import make_password
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
@@ -174,3 +175,28 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'full_name', 'mobile_number', 'role', 'address', 'profile_image', 'doctordetail', 'schedules']
+
+
+class DoctorSignupSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'full_name', 'mobile_number', 'password', 'role', 'address', 'profile_image']
+        extra_kwargs = {
+            'role': {'default': 'doctor'},
+        }
+
+    def validate_role(self, value):
+        if value != 'doctor':
+            raise serializers.ValidationError("Only doctor signup is allowed with this endpoint.")
+        return value
+
+    def create(self, validated_data):
+        password = validated_data.pop("password")
+        user = User.objects.create(**validated_data)
+        user.set_password(password)
+        user.save()
+
+        # ✅ DoctorDetail will be automatically created via signal
+        return user

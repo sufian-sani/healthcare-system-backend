@@ -1,6 +1,6 @@
 from rest_framework import generics, permissions
 from rest_framework.permissions import AllowAny
-from .serializers import DoctorListSerializer, DoctorProfileSerializer, RegisterSerializer, UserProfileSerializer
+from .serializers import DoctorListSerializer, DoctorProfileSerializer, DoctorSignupSerializer, RegisterSerializer, UserProfileSerializer
 from .models import User
 from rest_framework.views import APIView
 from rest_framework import status
@@ -60,4 +60,10 @@ class DoctorListView(generics.ListAPIView):
 class DoctorDetailView(generics.RetrieveAPIView):
     queryset = User.objects.filter(role='doctor').select_related('doctordetail').prefetch_related('doctorschedule_set')
     serializer_class = DoctorProfileSerializer
+    permission_classes = [permissions.AllowAny]
+    
+
+class DoctorSignupView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = DoctorSignupSerializer
     permission_classes = [permissions.AllowAny]

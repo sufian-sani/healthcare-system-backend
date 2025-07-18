@@ -5,18 +5,21 @@ from .models import DoctorSchedule, User, DoctorDetail
 @receiver(post_save, sender=User)
 def create_doctor_profile(sender, instance, created, **kwargs):
     if created and instance.role == 'doctor':
-        # Avoid duplicate DoctorDetail creation
         if not hasattr(instance, 'doctordetail'):
             DoctorDetail.objects.create(
                 user=instance,
                 license_number='',
                 experience_years=0,
-                consultation_fee=0
+                consultation_fee=0,
+                specialization='',
+                location=''
             )
-        if not hasattr(instance, 'doctorschedule'):
+
+        # Auto-create only if no schedule exists
+        if not DoctorSchedule.objects.filter(doctor=instance).exists():
             DoctorSchedule.objects.create(
                 doctor=instance,
-                date=None,
+                date=None,  # still not recommended
                 start_time=None,
-                end_time=None,
+                end_time=None
             )
