@@ -42,7 +42,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     # 'users',
     'users.apps.UsersConfig',
-    'appointments'
+    'appointments',
+    'admin_panel'
 ]
 
 AUTH_USER_MODEL = 'users.User'
