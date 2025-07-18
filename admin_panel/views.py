@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from django.db.models import Count, Sum
 
 from .permissions import IsAdminUserRole
-from .serializers import AdminAppointmentSerializer, AdminDoctorSerializer, AppointmentCRUDSerializer
+from .serializers import AdminAppointmentSerializer, AdminDoctorSerializer, AdminUserListSerializer, AdminUserStatusUpdateSerializer, AppointmentCRUDSerializer, DoctorStatusUpdateSerializer
 from appointments.models import AppointmentBooking
 from users.models import User
 
@@ -40,19 +40,51 @@ class AdminReportView(APIView):
     permission_classes = [IsAdminUserRole]
 
     def get(self, request):
+        # ✅ Appointments per doctor
         doctor_appointments = (
             AppointmentBooking.objects.values("doctor__full_name")
             .annotate(total_appointments=Count("id"))
         )
+
+        # ✅ Total revenue (only completed appointments)
         total_revenue = AppointmentBooking.objects.filter(status="completed").aggregate(
             total=Sum("doctor__doctordetail__consultation_fee")
         )
+
+        # ✅ Detailed list of patients who booked schedules (with notes)
+        booked_details = AppointmentBooking.objects.select_related("doctor", "patient", "schedule").values(
+            "doctor__full_name",
+            "patient__full_name",
+            "schedule__date",
+            "appointment_time",
+            "notes",
+            "status"
+        )
+
         return Response({
             "appointments_per_doctor": list(doctor_appointments),
-            "total_revenue": total_revenue["total"] or 0
+            "total_revenue": total_revenue["total"] or 0,
+            "booked_details": list(booked_details)
         })
 
 class AdminAppointmentCRUDView(generics.RetrieveUpdateDestroyAPIView):
     queryset = AppointmentBooking.objects.all()
     serializer_class = AppointmentCRUDSerializer
+    permission_classes = [IsAdminUserRole]
+    
+    
+class AdminDoctorStatusUpdateView(generics.UpdateAPIView):
+    queryset = User.objects.filter(role='doctor')
+    serializer_class = DoctorStatusUpdateSerializer
+    permission_classes = [IsAdminUserRole]
+    
+    
+class AdminUserListView(generics.ListAPIView):
+    queryset = User.objects.all().order_by('-created_at')
+    serializer_class = AdminUserListSerializer
+    permission_classes = [IsAdminUserRole]
+    
+class AdminUserStatusUpdateView(generics.UpdateAPIView):
+    queryset = User.objects.all()
+    serializer_class = AdminUserStatusUpdateSerializer
     permission_classes = [IsAdminUserRole]

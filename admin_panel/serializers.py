@@ -26,7 +26,7 @@ class AdminDoctorSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "full_name", "mobile_number", "role", "doctordetail", "schedules"]
+        fields = ["id", "full_name", "mobile_number", "role", "doctordetail", "schedules", "is_active"]
         
         
 class AppointmentStatusUpdateSerializer(serializers.ModelSerializer):
@@ -54,3 +54,29 @@ class AppointmentCRUDSerializer(serializers.ModelSerializer):
         if value not in allowed_status:
             raise serializers.ValidationError(f"Invalid status. Choose from {allowed_status}.")
         return value
+
+
+class DoctorStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'full_name', 'is_active']
+        read_only_fields = ['id', 'full_name']
+       
+class FilteredListSerializer(serializers.ListSerializer):
+    def to_representation(self, data):
+        data = data.filter(role='patient')  # Filter only 'patient' roles
+        return super().to_representation(data) 
+
+class AdminUserListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'full_name', 'mobile_number', 'role', 'is_active', 'created_at']
+        list_serializer_class = FilteredListSerializer
+
+        
+        
+class AdminUserStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'is_active']
+        read_only_fields = ['id']
