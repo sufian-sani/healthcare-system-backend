@@ -32,6 +32,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class RegisterSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(required=True)
     password = serializers.CharField(write_only=True, min_length=8)
     role = serializers.CharField(required=False)
     access = serializers.CharField(read_only=True)
@@ -39,23 +40,59 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['full_name', 'mobile_number', 'password', 'role', 'address','access', 'refresh']
+        fields = [
+            'id', 'full_name', 'email', 'mobile_number',
+            'password', 'role', 'address', 'access', 'refresh'
+        ]
+
+    # ✅ Validate Email (must be unique)
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("This email is already in use.")
+        return value
+
+    # ✅ Validate Mobile Number (+88 and 14 characters)
+    def validate_mobile_number(self, value):
+        if not re.match(r'^\+88[0-9]{11}$', value):
+            raise serializers.ValidationError(
+                "Mobile number must start with +88 and be exactly 14 characters (e.g., +8801711223344)."
+            )
+        return value
+
+    # ✅ Validate Strong Password
+    def validate_password(self, value):
+        if len(value) < 8:
+            raise serializers.ValidationError("Password must be at least 8 characters long.")
+        if not re.search(r'[A-Z]', value):
+            raise serializers.ValidationError("Password must contain at least one uppercase letter.")
+        if not re.search(r'\d', value):
+            raise serializers.ValidationError("Password must contain at least one digit.")
+        if not re.search(r'[!@#$%^&*(),.?\":{}|<>]', value):
+            raise serializers.ValidationError("Password must contain at least one special character.")
+        return value
 
     def create(self, validated_data):
-        role = validated_data.get('role', 'patient')
+        role = validated_data.get('role', 'patient')  # Default role = patient
         user = User.objects.create_user(
             full_name=validated_data['full_name'],
+            email=validated_data['email'],
             mobile_number=validated_data['mobile_number'],
             password=validated_data['password'],
             role=role,
             address=validated_data.get('address', '')
         )
-        # 🔑 Generate tokens
-        refresh = RefreshToken.for_user(user)
-        validated_data['refresh'] = str(refresh)
-        validated_data['access'] = str(refresh.access_token)
 
-        return validated_data
+        # ✅ Generate JWT Tokens
+        refresh = RefreshToken.for_user(user)
+        return {
+            "id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "mobile_number": user.mobile_number,
+            "role": user.role,
+            "access": str(refresh.access_token),
+            "refresh": str(refresh)
+        }
 
 
 class DoctorDetailSerializer(serializers.ModelSerializer):

@@ -1,7 +1,9 @@
 from rest_framework import generics, filters
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.db.models import Count, Sum
+from django.db.models import Count, Sum, Q
+from django.db.models.functions import TruncMonth
+from django.db.models import Count, Sum, Q, F, ExpressionWrapper, DecimalField
 
 from .permissions import IsAdminUserRole
 from .serializers import AdminAppointmentSerializer, AdminDoctorSerializer, AdminUserListSerializer, AdminUserStatusUpdateSerializer, AppointmentCRUDSerializer, DoctorStatusUpdateSerializer
@@ -36,36 +38,60 @@ class AdminDoctorUpdateView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAdminUserRole]
 
 # ✅ Reports (Appointments & Revenue)
+
 class AdminReportView(APIView):
     permission_classes = [IsAdminUserRole]
 
     def get(self, request):
-        # ✅ Appointments per doctor
-        doctor_appointments = (
-            AppointmentBooking.objects.values("doctor__full_name")
-            .annotate(total_appointments=Count("id"))
+        # ✅ Get query params (default: show all if not provided)
+        month = request.GET.get("month")
+        year = request.GET.get("year")
+
+        queryset = AppointmentBooking.objects.all()
+
+        # ✅ Apply filtering if month & year provided
+        if month and year:
+            queryset = queryset.filter(
+                created_at__month=int(month),
+                created_at__year=int(year)
+            )
+
+        # ✅ Ensure revenue calculated only for completed appointments
+        # (Multiplying completed appointments by consultation_fee per booking)
+        queryset = queryset.annotate(
+            earned=ExpressionWrapper(
+                F("doctor__doctordetail__consultation_fee"),
+                output_field=DecimalField(max_digits=10, decimal_places=2)
+            )
         )
 
-        # ✅ Total revenue (only completed appointments)
-        total_revenue = AppointmentBooking.objects.filter(status="completed").aggregate(
-            total=Sum("doctor__doctordetail__consultation_fee")
+        monthly_report = (
+            queryset.annotate(month=TruncMonth("created_at"))
+            .values("month", "doctor__id", "doctor__full_name")
+            .annotate(
+                total_appointments=Count("id"),
+                total_patient_visits=Count("patient", distinct=True),
+                total_earned=Sum(
+                    "earned",
+                    filter=Q(status="completed")  # ✅ Count revenue only for completed appointments
+                )
+            )
+            .order_by("month", "doctor__full_name")
         )
 
-        # ✅ Detailed list of patients who booked schedules (with notes)
-        booked_details = AppointmentBooking.objects.select_related("doctor", "patient", "schedule").values(
-            "doctor__full_name",
-            "patient__full_name",
-            "schedule__date",
-            "appointment_time",
-            "notes",
-            "status"
-        )
+        report_data = [
+            {
+                "month": data["month"].strftime("%B %Y"),
+                "doctor_id": data["doctor__id"],
+                "doctor_name": data["doctor__full_name"],
+                "total_patient_visits": data["total_patient_visits"],
+                "total_appointments": data["total_appointments"],
+                "total_earned": float(data["total_earned"] or 0)
+            }
+            for data in monthly_report
+        ]
 
-        return Response({
-            "appointments_per_doctor": list(doctor_appointments),
-            "total_revenue": total_revenue["total"] or 0,
-            "booked_details": list(booked_details)
-        })
+        return Response({"monthly_report": report_data})
 
 class AdminAppointmentCRUDView(generics.RetrieveUpdateDestroyAPIView):
     queryset = AppointmentBooking.objects.all()
