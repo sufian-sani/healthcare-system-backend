@@ -1,11 +1,10 @@
-from rest_framework import generics, permissions
+from rest_framework import viewsets, generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import AppointmentBooking
-from .serializers import AppointmentBookingSerializer, AppointmentStatusUpdateSerializer, AvailableSlotsSerializer
+from .serializers import AppointmentBookingSerializer, AppointmentStatusUpdateSerializer, AvailableSlotsSerializer, DoctorScheduleSerializer
 from users.models import DoctorSchedule
 from .utils import generate_30_min_slots
-from rest_framework import status
 
 # ✅ Book an appointment
 class AppointmentBookingView(generics.CreateAPIView):
@@ -55,3 +54,23 @@ class AppointmentStatusUpdateView(generics.UpdateAPIView):
         if appointment.doctor != self.request.user:
             raise PermissionDenied("You are not allowed to update this appointment status.")
         return appointment
+    
+    
+
+class DoctorScheduleViewSet(viewsets.ModelViewSet):
+    serializer_class = DoctorScheduleSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        """✅ Doctors can only see their own schedules"""
+        user = self.request.user
+        if user.role == "doctor":
+            return DoctorSchedule.objects.filter(doctor=user)
+        return DoctorSchedule.objects.none()
+
+    def perform_create(self, serializer):
+        """✅ Automatically assign logged-in doctor"""
+        user = self.request.user
+        if user.role != "doctor":
+            raise PermissionError("Only doctors can create schedules.")
+        serializer.save(doctor=user)

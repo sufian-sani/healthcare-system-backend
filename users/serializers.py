@@ -188,11 +188,12 @@ class DoctorSignupSerializer(serializers.ModelSerializer):
         child=serializers.DictField(child=serializers.CharField()),
         write_only=True
     )
+    email = serializers.EmailField(required=True)
 
     class Meta:
         model = User
         fields = [
-            'id', 'full_name', 'mobile_number', 'password', 'role',
+            'id', 'full_name', 'email', 'mobile_number', 'password', 'role',
             'address', 'profile_image',
             'license_number', 'experience_years', 'consultation_fee', 'available_timeslots'
         ]
@@ -218,6 +219,12 @@ class DoctorSignupSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Mobile number must start with +88 and be exactly 14 characters (e.g., +8801711223344)."
             )
+        return value
+    
+    def validate_email(self, value):
+        """✅ Ensure email is unique"""
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("This email is already in use.")
         return value
 
     # ✅ Validation: Password (Strong password)
