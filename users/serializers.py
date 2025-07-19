@@ -200,32 +200,73 @@ class DoctorSignupSerializer(serializers.ModelSerializer):
             'role': {'default': 'doctor'}
         }
 
+    # ✅ Validation: Role
     def validate_role(self, value):
         if value != 'doctor':
             raise serializers.ValidationError("Only doctor signup is allowed with this endpoint.")
         return value
 
+    # ✅ Validation: Mobile Number
     def validate_mobile_number(self, value):
-        """✅ Ensure mobile number starts with +88 and has exactly 14 characters"""
-        if not value.startswith("+88"):
-            raise serializers.ValidationError("Mobile number must start with +88.")
-        if len(value) != 14:
-            raise serializers.ValidationError("Mobile number must be exactly 14 characters (e.g., +8801711223344).")
+        """
+        Mobile number must:
+        ✅ Start with +88
+        ✅ Have exactly 14 characters
+        ✅ Contain only digits after +88
+        """
         if not re.match(r'^\+88[0-9]{11}$', value):
-            raise serializers.ValidationError("Mobile number must contain only digits after +88.")
+            raise serializers.ValidationError(
+                "Mobile number must start with +88 and be exactly 14 characters (e.g., +8801711223344)."
+            )
+        return value
+
+    # ✅ Validation: Password (Strong password)
+    def validate_password(self, value):
+        """
+        Password must:
+        ✅ Be at least 8 characters
+        ✅ Contain 1 uppercase, 1 digit, 1 special character
+        """
+        if len(value) < 8:
+            raise serializers.ValidationError("Password must be at least 8 characters long.")
+        if not re.search(r'[A-Z]', value):
+            raise serializers.ValidationError("Password must contain at least one uppercase letter.")
+        if not re.search(r'\d', value):
+            raise serializers.ValidationError("Password must contain at least one digit.")
+        if not re.search(r'[!@#$%^&*(),.?\":{}|<>]', value):
+            raise serializers.ValidationError("Password must contain at least one special character.")
+        return value
+
+    # ✅ Validation: Available Timeslots
+    def validate_available_timeslots(self, value):
+        """
+        Each slot must have: date, start_time, end_time
+        """
+        for slot in value:
+            if not all(key in slot for key in ["date", "start_time", "end_time"]):
+                raise serializers.ValidationError(
+                    "Each timeslot must include 'date', 'start_time', and 'end_time'."
+                )
         return value
 
     def create(self, validated_data):
+        """
+        ✅ Create doctor account with:
+        1. User
+        2. DoctorDetail
+        3. DoctorSchedule
+        """
         password = validated_data.pop("password")
         license_number = validated_data.pop("license_number")
         experience_years = validated_data.pop("experience_years")
         consultation_fee = validated_data.pop("consultation_fee")
         available_timeslots = validated_data.pop("available_timeslots")
+        
+        validated_data.pop("role", None)
 
         # ✅ Create User (Doctor)
-        user = User.objects.create(**validated_data)
+        user = User.objects.create(role="doctor", **validated_data)
         user.set_password(password)
-        user.role = "doctor"
         user.save()
 
         # ✅ Create DoctorDetail
@@ -236,13 +277,16 @@ class DoctorSignupSerializer(serializers.ModelSerializer):
             consultation_fee=consultation_fee
         )
 
-        # ✅ Create DoctorSchedule
-        for slot in available_timeslots:
-            DoctorSchedule.objects.create(
+        # ✅ Bulk Create DoctorSchedules
+        schedules = [
+            DoctorSchedule(
                 doctor=user,
-                date=slot.get("date"),
-                start_time=slot.get("start_time"),
-                end_time=slot.get("end_time")
+                date=slot["date"],
+                start_time=slot["start_time"],
+                end_time=slot["end_time"]
             )
+            for slot in available_timeslots
+        ]
+        DoctorSchedule.objects.bulk_create(schedules)
 
         return user
