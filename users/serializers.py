@@ -184,6 +184,8 @@ class DoctorSignupSerializer(serializers.ModelSerializer):
     license_number = serializers.CharField(write_only=True)
     experience_years = serializers.IntegerField(write_only=True)
     consultation_fee = serializers.IntegerField(write_only=True)
+    specialization = serializers.CharField(write_only=True)
+    location = serializers.CharField(write_only=True)
     available_timeslots = serializers.ListField(
         child=serializers.DictField(child=serializers.CharField()),
         write_only=True
@@ -195,7 +197,8 @@ class DoctorSignupSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'full_name', 'email', 'mobile_number', 'password', 'role',
             'address', 'profile_image',
-            'license_number', 'experience_years', 'consultation_fee', 'available_timeslots'
+            'license_number', 'experience_years', 'consultation_fee',
+            'specialization', 'location', 'available_timeslots'
         ]
         extra_kwargs = {
             'role': {'default': 'doctor'}
@@ -220,20 +223,15 @@ class DoctorSignupSerializer(serializers.ModelSerializer):
                 "Mobile number must start with +88 and be exactly 14 characters (e.g., +8801711223344)."
             )
         return value
-    
+
+    # ✅ Validation: Email
     def validate_email(self, value):
-        """✅ Ensure email is unique"""
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("This email is already in use.")
         return value
 
     # ✅ Validation: Password (Strong password)
     def validate_password(self, value):
-        """
-        Password must:
-        ✅ Be at least 8 characters
-        ✅ Contain 1 uppercase, 1 digit, 1 special character
-        """
         if len(value) < 8:
             raise serializers.ValidationError("Password must be at least 8 characters long.")
         if not re.search(r'[A-Z]', value):
@@ -246,9 +244,6 @@ class DoctorSignupSerializer(serializers.ModelSerializer):
 
     # ✅ Validation: Available Timeslots
     def validate_available_timeslots(self, value):
-        """
-        Each slot must have: date, start_time, end_time
-        """
         for slot in value:
             if not all(key in slot for key in ["date", "start_time", "end_time"]):
                 raise serializers.ValidationError(
@@ -267,9 +262,11 @@ class DoctorSignupSerializer(serializers.ModelSerializer):
         license_number = validated_data.pop("license_number")
         experience_years = validated_data.pop("experience_years")
         consultation_fee = validated_data.pop("consultation_fee")
+        specialization = validated_data.pop("specialization")
+        location = validated_data.pop("location")
         available_timeslots = validated_data.pop("available_timeslots")
-        
-        validated_data.pop("role", None)
+
+        validated_data.pop("role", None)  # always force doctor role
 
         # ✅ Create User (Doctor)
         user = User.objects.create(role="doctor", **validated_data)
@@ -281,7 +278,9 @@ class DoctorSignupSerializer(serializers.ModelSerializer):
             user=user,
             license_number=license_number,
             experience_years=experience_years,
-            consultation_fee=consultation_fee
+            consultation_fee=consultation_fee,
+            specialization=specialization,
+            location=location
         )
 
         # ✅ Bulk Create DoctorSchedules

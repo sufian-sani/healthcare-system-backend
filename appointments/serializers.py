@@ -47,6 +47,11 @@ class AppointmentBookingSerializer(serializers.ModelSerializer):
 
         # ✅ Ensure appointment time is in the future (not past)
         appointment_datetime = datetime.combine(schedule.date, appointment_time)
+
+        # Make timezone-aware if naive
+        if timezone.is_naive(appointment_datetime):
+            appointment_datetime = timezone.make_aware(appointment_datetime, timezone.get_current_timezone())
+
         if appointment_datetime <= timezone.now():
             raise serializers.ValidationError({
                 "appointment_time": "You cannot book an appointment in the past."
